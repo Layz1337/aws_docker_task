@@ -216,7 +216,7 @@ def stream_and_push_logs(
     """
         Stream container logs and push them to CloudWatch in real-time
     """
-    for line in container.logs(stream=True, stdout=True, stderr=True):
+    for line in container.logs(stream=True, follow=True, stdout=True, stderr=True):
         message = line.decode('utf-8')
         timestamp = int(datetime.now().timestamp() * 1000)
         log_event = {
