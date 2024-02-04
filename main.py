@@ -136,43 +136,36 @@ def ensure_cw_log_group_and_stream(
         f'{log_stream_name} exist'
     )
 
-    for _ in range(MAX_CONNECTION_RETRIES):
-        try:
-            cw_client.create_log_group(
-                logGroupName=log_group_name
-            )
-            cw_client.create_log_stream(
-                logGroupName=log_group_name,
-                logStreamName=log_stream_name
-            )
-            return
+    try:
+        cw_client.create_log_group(
+            logGroupName=log_group_name
+        )
 
-        except ClientError as e:
-            # If the log group or stream already exists, just continue
-            # otherwise, re-raise the exception
-            if e.response['Error']['Code'] != 'ResourceAlreadyExistsException':
-                logger.error(
-                    'An error occurred while ensuring the CloudWatch log '
-                    f'group and stream exist: {e}'
-                )
-                raise
-
-            # Log group and stream already exist, so just return
-            return
-
-        except ConnectionError as e:
-            if _ == MAX_CONNECTION_RETRIES - 1:
-                # Max retries reached
-                logger.error(
-                    'Max retries reached while ensuring the CloudWatch log '
-                )
-                raise
-            # Retry if network error occurs
+    except ClientError as e:
+        # If the log group or stream already exists, just continue
+        # otherwise, re-raise the exception
+        if e.response['Error']['Code'] != 'ResourceAlreadyExistsException':
             logger.error(
-                'A network error occurred while ensuring the CloudWatch log '
-                f'group and stream exist: {e}'
+                'An error occurred while ensuring the CloudWatch log '
+                f'group exist: {e}'
             )
-            continue
+            raise
+
+    try:
+        cw_client.create_log_stream(
+            logGroupName=log_group_name,
+            logStreamName=log_stream_name
+        )
+
+    except ClientError as e:
+        # If the log group or stream already exists, just continue
+        # otherwise, re-raise the exception
+        if e.response['Error']['Code'] != 'ResourceAlreadyExistsException':
+            logger.error(
+                'An error occurred while ensuring the CloudWatch log '
+                f'stream exist: {e}'
+            )
+            raise
 
 
 def push_log_event_to_cw_repeatedly(
