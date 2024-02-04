@@ -3,7 +3,7 @@
 import logging
 import argparse
 from datetime import datetime
-from typing import Any
+from typing import Any, List, Dict
 
 import docker
 import boto3
@@ -18,6 +18,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 MAX_CONNECTION_RETRIES = 5
+# MAX_MESSAGE_SIZE_BYTES = 256 * 1024  # 256 KB
+# MAX_BATCH_SIZE = 10
+
+MAX_MESSAGE_SIZE_BYTES = 1 * 1024  # 1 KB
+MAX_BATCH_SIZE = 2
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -29,37 +34,44 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         '--docker-image',
         type=str,
-        help='Docker image name'
+        help='Docker image name',
+        required=True
     )
     parser.add_argument(
         '--bash-command',
         type=str,
-        help='Bash command to run in the Docker container'
+        help='Bash command to run in the Docker container',
+        required=True
     )
     parser.add_argument(
         '--aws-cloudwatch-group',
         type=str,
-        help='AWS CloudWatch group'
+        help='AWS CloudWatch group',
+        required=True
     )
     parser.add_argument(
         '--aws-cloudwatch-stream',
         type=str,
-        help='AWS CloudWatch stream'
+        help='AWS CloudWatch stream',
+        required=True
     )
     parser.add_argument(
         '--aws-access-key-id',
         type=str,
-        help='AWS access key ID'
+        help='AWS access key ID',
+        required=True
     )
     parser.add_argument(
         '--aws-secret-access-key',
         type=str,
-        help='AWS secret access key'
+        help='AWS secret access key',
+        required=True
     )
     parser.add_argument(
         '--aws-region',
         type=str,
-        help='AWS region'
+        help='AWS region',
+        required=True
     )
 
     args = parser.parse_args()
@@ -169,11 +181,11 @@ def ensure_cw_log_group_and_stream(
             raise
 
 
-def push_log_event_to_cw_repeatedly(
+def push_log_events_to_cw(
         cw_client: Any,
         log_group_name: str,
         log_stream_name: str,
-        log_events: dict
+        log_events: List[Dict[str, str]]
 ) -> None:
     """
         Push the log event to CloudWatch
@@ -207,6 +219,53 @@ def push_log_event_to_cw_repeatedly(
             continue
 
 
+def split_the_batch_buffer(
+        batch_buffer: List[Dict[str, str]],
+        buffer_size: int
+):
+    """
+        Split the input list into chunks of the specified size
+        Also removes the processed elements from the input list
+        and leaves the rest
+    """
+    while len(batch_buffer) >= buffer_size:
+        chunk = batch_buffer[:buffer_size]
+        yield chunk
+        del batch_buffer[:buffer_size]
+
+
+def utf8_boundary_iterator(string: bytes, message_size_bytes: int):
+    """
+        Safely split the input string into chunks of the specified size.
+        Tries to split on newline characters if they are present within the message size limit.
+    """
+    start = 0
+
+    while start < len(string):
+        end = start + message_size_bytes
+        if end >= len(string):
+            # If the end of the range is out of the string bounds,
+            # yield the rest and break
+            yield string[start:]
+            break
+
+        # Try to find a newline character as a natural breaking point
+        newline_pos = string.rfind(b'\n', start, end)
+        if newline_pos != -1:
+            yield string[start:newline_pos]
+            # Move the start to the character next to newline
+            start = newline_pos
+            continue
+
+        # If no suitable newline is found, check if we are
+        # in the middle of a multi-byte character
+        while (string[end] & 0xC0) == 0x80:
+            end -= 1
+
+        yield string[start:end]
+        start = end
+
+
 def stream_and_push_logs(
         container: docker.models.containers.Container,
         cw_client: Any,
@@ -214,21 +273,63 @@ def stream_and_push_logs(
         log_stream_name: str
 ) -> None:
     """
-        Stream container logs and push them to CloudWatch in real-time
+        Stream container logs and push them to CloudWatch in batches
     """
-    for line in container.logs(stream=True, follow=True, stdout=True, stderr=True):
-        message = line.decode('utf-8')
-        timestamp = int(datetime.now().timestamp() * 1000)
-        log_event = {
-            'timestamp': timestamp,
-            'message': message
-        }
+    message_buffer = b''
+    batch_buffer = []
 
-        push_log_event_to_cw_repeatedly(
+    for line in container.logs(
+            stream=True,
+            follow=True,
+            stdout=True,
+            stderr=True
+    ):
+        logger.info(line.decode('utf-8'))
+        message_buffer += line
+
+        # Continue if the message buffer is not full
+        if len(message_buffer) < MAX_MESSAGE_SIZE_BYTES * MAX_BATCH_SIZE:
+            continue
+
+        # Split the message string to the chunks and fill the batch buffer
+        for chunk in utf8_boundary_iterator(
+                string=message_buffer,
+                message_size_bytes=MAX_MESSAGE_SIZE_BYTES
+        ):
+            message = chunk.decode('utf-8')
+
+            # Skip empty messages
+            if not message:
+                continue
+
+            log_event = {
+                'timestamp': int(datetime.now().timestamp() * 1000),
+                'message': message
+            }
+            batch_buffer.append(log_event)
+
+        # Clear the message buffer
+        message_buffer = b''
+
+        # Push the log events to CloudWatch in batches of the specified size
+        for batch in split_the_batch_buffer(
+                batch_buffer=batch_buffer,
+                buffer_size=MAX_BATCH_SIZE
+        ):
+            push_log_events_to_cw(
+                cw_client=cw_client,
+                log_group_name=log_group_name,
+                log_stream_name=log_stream_name,
+                log_events=batch,
+            )
+
+    # Push the remaining log events to CloudWatch
+    if batch_buffer:
+        push_log_events_to_cw(
             cw_client=cw_client,
             log_group_name=log_group_name,
             log_stream_name=log_stream_name,
-            log_events=[log_event]
+            log_events=batch_buffer
         )
 
 
