@@ -20,7 +20,7 @@ from helpers import (
     init_aws_session,
     init_docker_client,
     run_docker_container,
-    fill_batch_buffer
+    process_log_messages
 )
 
 
@@ -112,11 +112,22 @@ async def stream_and_push_logs(
     """
         Stream container logs and push them to CloudWatch in batches
     """
-    message_buffer = b''
+    message_buffer = []
     batch_buffer = []
 
     push_task = None
+    log_process_task = None
     try:
+        # Process the log messages in batches
+        log_process_task = asyncio.create_task(
+            process_log_messages(
+                message_buffer=message_buffer,
+                batch_buffer=batch_buffer,
+                message_size_bytes=MAX_MESSAGE_SIZE_BYTES,
+                interval=SEND_LOGS_INTERVAL
+            )
+        )
+
         # Create a task for the periodic log push
         push_task = asyncio.create_task(
             periodic_log_push(
@@ -135,32 +146,16 @@ async def stream_and_push_logs(
                 stderr=True
         ):
             logger.debug(line)
-            message_buffer += line.encode('utf-8')
-
-            # Continue if the message buffer is not full
-            if len(message_buffer) < MAX_MESSAGE_SIZE_BYTES:
-                continue
-
-            # Fill the batch buffer with the log events
-            await fill_batch_buffer(
-                batch_buffer=batch_buffer,
-                message_buffer=message_buffer,
-                message_size_bytes=MAX_MESSAGE_SIZE_BYTES
-            )
-
-            message_buffer = b''
+            message_buffer.append(line.encode('utf-8'))
 
     except asyncio.exceptions.CancelledError:
         logger.info('The log push task was cancelled')
 
     finally:
         # Process the remaining log messages
-        if message_buffer:
-            await fill_batch_buffer(
-                batch_buffer=batch_buffer,
-                message_buffer=message_buffer,
-                message_size_bytes=MAX_MESSAGE_SIZE_BYTES
-            )
+        if log_process_task and not log_process_task.done():
+            log_process_task.cancel()
+            await log_process_task
 
         # Push the remaining logs if the task exists
         if push_task and not push_task.done():

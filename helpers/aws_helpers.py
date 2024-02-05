@@ -95,7 +95,9 @@ async def periodic_log_push(
             await asyncio.sleep(interval)
 
     except asyncio.exceptions.CancelledError:
-        # If the task is cancelled, push the remaining logs
+        if not batch_buffer:
+            return
+
         await cw_client.put_log_events(
             logGroupName=log_group_name,
             logStreamName=log_stream_name,

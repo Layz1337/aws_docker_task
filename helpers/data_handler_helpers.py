@@ -1,5 +1,6 @@
-from datetime import datetime
 import logging
+import asyncio
+from datetime import datetime
 from typing import List, Dict
 
 
@@ -72,3 +73,37 @@ async def fill_batch_buffer(
             'message': message
         }
         batch_buffer.append(log_event)
+
+
+async def process_log_messages(
+        message_buffer: List[bytes],
+        batch_buffer: List[Dict[str, str]],
+        message_size_bytes: int,
+        interval: int
+):
+    """
+        Process the log messages in batches
+    """
+    try:
+        while True:
+            while message_buffer:
+
+                await fill_batch_buffer(
+                    batch_buffer=batch_buffer,
+                    message_buffer=b''.join(message_buffer),
+                    message_size_bytes=message_size_bytes
+                )
+
+                message_buffer.clear()
+
+            await asyncio.sleep(interval)
+
+    except asyncio.exceptions.CancelledError:
+        if not message_buffer:
+            return
+
+        await fill_batch_buffer(
+            batch_buffer=batch_buffer,
+            message_buffer=b''.join(message_buffer),
+            message_size_bytes=message_size_bytes
+        )

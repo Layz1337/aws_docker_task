@@ -7,4 +7,7 @@ from .docker_helper import (
     init_docker_client,
     run_docker_container
 )
-from .data_handler_helpers import fill_batch_buffer
+from .data_handler_helpers import (
+    fill_batch_buffer,
+    process_log_messages
+)
