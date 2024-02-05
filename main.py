@@ -105,7 +105,8 @@ async def stream_and_push_logs(
                 log_group_name=log_group_name,
                 log_stream_name=log_stream_name,
                 max_batch_size=MAX_BATCH_SIZE,
-                interval=SEND_LOGS_INTERVAL
+                interval=SEND_LOGS_INTERVAL,
+                max_retries=MAX_CONNECTION_RETRIES
             )
         )
 
