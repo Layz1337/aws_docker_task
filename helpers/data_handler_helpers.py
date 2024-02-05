@@ -64,7 +64,6 @@ async def fill_batch_buffer(
     ):
         message = chunk.decode('utf-8')
 
-        # Skip empty messages
         if not message:
             continue
 

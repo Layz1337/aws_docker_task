@@ -12,7 +12,7 @@ from types_aiobotocore_logs.client import (
 logger = logging.getLogger(__name__)
 
 
-def get_aws_session():
+def init_aws_session():
     """
         Initialize AWS session
     """
@@ -27,12 +27,12 @@ async def ensure_cw_log_group_and_stream(
         log_stream_name: str
 ) -> None:
     """
-        Ensure that the specified CloudWatch log group and stream exist
+        Ensure that the specified CloudWatch log group and stream exists
         It reraises the exception if it's not a ResourceAlreadyExistsException
     """
     logger.info(
         f'Ensuring that the CloudWatch log group {log_group_name} and stream '
-        f'{log_stream_name} exist'
+        f'{log_stream_name} exists'
     )
 
     try:
@@ -46,7 +46,7 @@ async def ensure_cw_log_group_and_stream(
     except BotocoreClientError as e:
         logger.error(
             'An error occurred while ensuring the CloudWatch log '
-            f'group exist: {e}',
+            f'group exists: {e}',
             exc_info=True
         )
         raise
@@ -63,7 +63,7 @@ async def ensure_cw_log_group_and_stream(
     except BotocoreClientError as e:
         logger.error(
             'An error occurred while ensuring the CloudWatch log '
-            f'stream exist: {e}',
+            f'stream exists: {e}',
             exc_info=True
         )
         raise
@@ -92,7 +92,6 @@ async def push_log_events_to_cw(
             logger.error(
                 f'CloudWatch log group or stream not found: {e}'
             )
-            # re-raise the exception
             raise
         except cw_client.exceptions.ServiceUnavailableException as e:
             if attempt == max_retries:
@@ -100,7 +99,6 @@ async def push_log_events_to_cw(
                     f'Max retries reached trying to push the log events to '
                     f'CloudWatch: {e}'
                 )
-                # re-raise the exception
                 raise
 
             logger.warning(
@@ -126,7 +124,6 @@ async def periodic_log_push(
     """
     try:
         while True:
-            # Push all of the logs to the CloudWatch
             while batch_buffer:
                 await push_log_events_to_cw(
                     cw_client=cw_client,

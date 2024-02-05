@@ -16,7 +16,7 @@ from constants import (
 from helpers import (
     ensure_cw_log_group_and_stream,
     periodic_log_push,
-    get_aws_session,
+    init_aws_session,
     init_docker_client,
     run_docker_container,
     fill_batch_buffer
@@ -148,7 +148,6 @@ async def stream_and_push_logs(
                 message_size_bytes=MAX_MESSAGE_SIZE_BYTES
             )
 
-            # Clear the message buffer
             message_buffer = b''
 
     except asyncio.exceptions.CancelledError:
@@ -174,17 +173,13 @@ async def main():
     docker_client = None
 
     try:
-        # Parse command line arguments
         args = parse_arguments()
 
-        # Set the logging level
         setup_logging_level(args.log_level)
 
-        # Initialize Docker client
         docker_client = init_docker_client()
 
-        # Initialize AWS CloudWatch session
-        cw_session = get_aws_session()
+        cw_session = init_aws_session()
 
         logger.info('Initializing AWS CloudWatch client')
         async with cw_session.create_client(
@@ -193,18 +188,17 @@ async def main():
             aws_secret_access_key=args.aws_secret_access_key,
             region_name=args.aws_region
         ) as cw_client:
-            # Ensure the specified CloudWatch log group and stream
             await ensure_cw_log_group_and_stream(
                 cw_client,
                 args.aws_cloudwatch_group,
                 args.aws_cloudwatch_stream
             )
 
-            # Run the Docker container
             container = await run_docker_container(
                 docker_client,
                 args.docker_image,
-                ['/bin/bash', '-c', args.bash_command]  # wrap command using bash -c
+                # wrap command using bash -c
+                ['/bin/bash', '-c', args.bash_command]
             )
 
             # Stream and push logs to CloudWatch
