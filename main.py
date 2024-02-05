@@ -164,7 +164,7 @@ async def stream_and_push_logs(
             )
 
         # Push the remaining logs if the task exists
-        if push_task:
+        if push_task and not push_task.done():
             push_task.cancel()
             await push_task
 

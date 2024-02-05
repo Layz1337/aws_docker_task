@@ -77,13 +77,14 @@ async def push_log_events_to_cw(
         Push the log event to CloudWatch
     """
 
-    for attempt in range(start=1, stop=max_retries+1):
+    for attempt in range(1, max_retries+1):
         try:
             await cw_client.put_log_events(
                 logGroupName=log_group_name,
                 logStreamName=log_stream_name,
                 logEvents=log_events
             )
+            break
         except cw_client.exceptions.ResourceNotFoundException as e:
             logger.error(
                 f'CloudWatch log group or stream not found: {e}'
@@ -128,7 +129,7 @@ async def periodic_log_push(
                     cw_client=cw_client,
                     log_group_name=log_group_name,
                     log_stream_name=log_stream_name,
-                    batch_buffer=batch_buffer[:max_batch_size],
+                    log_events=batch_buffer[:max_batch_size],
                     max_retries=max_retries
                 )
                 # Remove the pushed logs from the buffer
@@ -142,6 +143,6 @@ async def periodic_log_push(
             cw_client=cw_client,
             log_group_name=log_group_name,
             log_stream_name=log_stream_name,
-            batch_buffer=batch_buffer,
+            log_events=batch_buffer,
             max_retries=max_retries
         )
