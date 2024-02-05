@@ -6,10 +6,6 @@ from aiobotocore.session import get_session
 from types_aiobotocore_logs.client import CloudWatchLogsClient
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 

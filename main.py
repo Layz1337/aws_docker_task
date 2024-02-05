@@ -23,10 +23,6 @@ from helpers import (
 )
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 
@@ -78,9 +74,32 @@ def parse_arguments() -> argparse.Namespace:
         help='AWS region',
         required=True
     )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="info",
+        choices=[
+            "debug",
+            "info",
+            "warning",
+            "error",
+            "critical"
+        ],
+        help="Set the logging level"
+    )
 
     args = parser.parse_args()
     return args
+
+
+def setup_logging_level(log_level: str) -> None:
+    """
+        Set the logging level
+    """
+    logging.basicConfig(
+        level=log_level.upper(),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
 
 
 async def stream_and_push_logs(
@@ -115,7 +134,7 @@ async def stream_and_push_logs(
                 stdout=True,
                 stderr=True
         ):
-            logger.info(line)
+            logger.debug(line)
             message_buffer += line.encode('utf-8')
 
             # Continue if the message buffer is not full
@@ -156,6 +175,9 @@ async def main():
     try:
         # Parse command line arguments
         args = parse_arguments()
+
+        # Set the logging level
+        setup_logging_level(args.log_level)
 
         # Initialize Docker client
         docker_client = init_docker_client()
