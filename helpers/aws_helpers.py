@@ -28,7 +28,7 @@ async def ensure_cw_log_group_and_stream(
 ) -> None:
     """
         Ensure that the specified CloudWatch log group and stream exists
-        It reraises the exception if it's not a ResourceAlreadyExistsException
+        Retrow the exception if it's not a ResourceAlreadyExistsException
     """
     logger.info(
         f'Ensuring that the CloudWatch log group {log_group_name} and stream '
@@ -45,8 +45,8 @@ async def ensure_cw_log_group_and_stream(
         pass
     except BotocoreClientError as e:
         logger.error(
-            'An error occurred while ensuring the CloudWatch log '
-            f'group exists: {e}',
+            'An error occurred durning the CloudWatch log '
+            f'group ensuring: {e}',
             exc_info=True
         )
         raise
@@ -62,8 +62,8 @@ async def ensure_cw_log_group_and_stream(
         pass
     except BotocoreClientError as e:
         logger.error(
-            'An error occurred while ensuring the CloudWatch log '
-            f'stream exists: {e}',
+            'An error occurred durning the CloudWatch log '
+            f'stream ensuring: {e}',
             exc_info=True
         )
         raise
@@ -78,7 +78,7 @@ async def periodic_log_push(
         interval: int
 ):
     """
-        Periodically push the log events to CloudWatch in batches
+        Periodically push the log events batches to CloudWatch
     """
     try:
         while True:

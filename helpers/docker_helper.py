@@ -20,10 +20,10 @@ async def run_docker_container(
         command_to_run: str
 ) -> aiodocker.docker.DockerContainer:
     """
-        Run Docker container with the specified image and bash command
+        Run a Docker container with the given image and bash command
     """
     logger.info(
-        f'Running Docker container with image {image_name}'
+        f'Running a Docker container with the image: {image_name}'
     )
 
     try:
@@ -35,7 +35,7 @@ async def run_docker_container(
         )
     except aiodocker.exceptions.DockerError as e:
         logger.error(
-            f'An error occurred while running Docker container: {e}',
+            f'An error occurred while running a Docker container: {e}',
             exc_info=True
         )
         raise

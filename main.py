@@ -179,7 +179,7 @@ async def main():
         logger.info('Initializing AWS CloudWatch client')
 
         aws_config = AioConfig(
-            retries = {
+            retries={
                 'max_attempts': MAX_CONNECTION_RETRIES,
                 'mode': 'standard'
             }

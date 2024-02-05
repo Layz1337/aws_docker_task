@@ -13,7 +13,7 @@ async def utf8_boundary_iterator(
 ):
     """
         Safely split the input string into chunks of the specified size.
-        Tries to split on newline characters
+        Attempt to split on newline characters
             if they are present within the message size limit.
     """
     start = 0
@@ -57,7 +57,7 @@ async def fill_batch_buffer(
         message_size_bytes: int
 ):
     """
-        Split the message string to the chunks and fill the batch buffer
+        Split the message string into chunks and fill the batch buffer
     """
     async for chunk in utf8_boundary_iterator(
             string=message_buffer,
