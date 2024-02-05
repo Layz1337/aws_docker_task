@@ -28,7 +28,7 @@ async def run_docker_container(
 
     try:
         return await docker_client.containers.run(
-            config = {
+            config={
                 'Image': image_name,
                 'Cmd': command_to_run,
             }

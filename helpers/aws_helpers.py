@@ -3,7 +3,10 @@ import asyncio
 from typing import List, Dict
 
 from aiobotocore.session import get_session
-from types_aiobotocore_logs.client import CloudWatchLogsClient, BotocoreClientError
+from types_aiobotocore_logs.client import (
+    CloudWatchLogsClient,
+    BotocoreClientError
+)
 
 
 logger = logging.getLogger(__name__)
@@ -37,7 +40,7 @@ async def ensure_cw_log_group_and_stream(
             logGroupName=log_group_name
         )
 
-    except cw_client.exceptions.ResourceAlreadyExistsException as e:
+    except cw_client.exceptions.ResourceAlreadyExistsException:
         # Group already exists, just continue
         pass
     except BotocoreClientError as e:
@@ -54,7 +57,7 @@ async def ensure_cw_log_group_and_stream(
             logStreamName=log_stream_name
         )
 
-    except cw_client.exceptions.ResourceAlreadyExistsException as e:
+    except cw_client.exceptions.ResourceAlreadyExistsException:
         # Stream already exists
         pass
     except BotocoreClientError as e:

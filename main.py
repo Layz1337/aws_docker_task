@@ -168,6 +168,7 @@ async def stream_and_push_logs(
             push_task.cancel()
             await push_task
 
+
 async def main():
     container = None
     docker_client = None
