@@ -4,6 +4,7 @@ import logging
 import argparse
 import asyncio
 
+from aiobotocore.config import AioConfig
 from types_aiobotocore_logs.client import CloudWatchLogsClient
 from aiodocker.docker import DockerContainer
 
@@ -124,8 +125,7 @@ async def stream_and_push_logs(
                 log_group_name=log_group_name,
                 log_stream_name=log_stream_name,
                 max_batch_size=MAX_BATCH_SIZE,
-                interval=SEND_LOGS_INTERVAL,
-                max_retries=MAX_CONNECTION_RETRIES
+                interval=SEND_LOGS_INTERVAL
             )
         )
 
@@ -138,7 +138,7 @@ async def stream_and_push_logs(
             message_buffer += line.encode('utf-8')
 
             # Continue if the message buffer is not full
-            if len(message_buffer) < MAX_MESSAGE_SIZE_BYTES * MAX_BATCH_SIZE:
+            if len(message_buffer) < MAX_MESSAGE_SIZE_BYTES:
                 continue
 
             # Fill the batch buffer with the log events
@@ -182,11 +182,20 @@ async def main():
         cw_session = init_aws_session()
 
         logger.info('Initializing AWS CloudWatch client')
+
+        aws_config = AioConfig(
+            retries = {
+                'max_attempts': MAX_CONNECTION_RETRIES,
+                'mode': 'standard'
+            }
+        )
+
         async with cw_session.create_client(
             service_name='logs',
             aws_access_key_id=args.aws_access_key_id,
             aws_secret_access_key=args.aws_secret_access_key,
-            region_name=args.aws_region
+            region_name=args.aws_region,
+            config=aws_config
         ) as cw_client:
             await ensure_cw_log_group_and_stream(
                 cw_client,

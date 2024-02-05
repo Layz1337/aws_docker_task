@@ -69,55 +69,13 @@ async def ensure_cw_log_group_and_stream(
         raise
 
 
-async def push_log_events_to_cw(
-        cw_client: CloudWatchLogsClient,
-        log_group_name: str,
-        log_stream_name: str,
-        log_events: List[Dict[str, str]],
-        max_retries: int = 3
-) -> None:
-    """
-        Push the log event to CloudWatch
-    """
-
-    for attempt in range(1, max_retries+1):
-        try:
-            await cw_client.put_log_events(
-                logGroupName=log_group_name,
-                logStreamName=log_stream_name,
-                logEvents=log_events
-            )
-            break
-        except cw_client.exceptions.ResourceNotFoundException as e:
-            logger.error(
-                f'CloudWatch log group or stream not found: {e}'
-            )
-            raise
-        except cw_client.exceptions.ServiceUnavailableException as e:
-            if attempt == max_retries:
-                logger.error(
-                    f'Max retries reached trying to push the log events to '
-                    f'CloudWatch: {e}'
-                )
-                raise
-
-            logger.warning(
-                f'Failed to push the log events to CloudWatch: {e}. '
-                f'Retrying {attempt}/{max_retries}'
-            )
-            # Exponential backoff
-            await asyncio.sleep(2 ** attempt)
-            continue
-
-
 async def periodic_log_push(
         cw_client: CloudWatchLogsClient,
         log_group_name: str,
         log_stream_name: str,
         batch_buffer: List[Dict[str, str]],
         max_batch_size: int,
-        interval: int,
-        max_retries: int = 3
+        interval: int
 ):
     """
         Periodically push the log events to CloudWatch in batches
@@ -125,13 +83,12 @@ async def periodic_log_push(
     try:
         while True:
             while batch_buffer:
-                await push_log_events_to_cw(
-                    cw_client=cw_client,
-                    log_group_name=log_group_name,
-                    log_stream_name=log_stream_name,
-                    log_events=batch_buffer[:max_batch_size],
-                    max_retries=max_retries
+                await cw_client.put_log_events(
+                    logGroupName=log_group_name,
+                    logStreamName=log_stream_name,
+                    logEvents=batch_buffer[:max_batch_size]
                 )
+
                 # Remove the pushed logs from the buffer
                 del batch_buffer[:max_batch_size]
 
@@ -139,10 +96,8 @@ async def periodic_log_push(
 
     except asyncio.exceptions.CancelledError:
         # If the task is cancelled, push the remaining logs
-        await push_log_events_to_cw(
-            cw_client=cw_client,
-            log_group_name=log_group_name,
-            log_stream_name=log_stream_name,
-            log_events=batch_buffer,
-            max_retries=max_retries
+        await cw_client.put_log_events(
+            logGroupName=log_group_name,
+            logStreamName=log_stream_name,
+            logEvents=batch_buffer
         )
