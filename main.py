@@ -225,6 +225,11 @@ async def main():
             'The process was interrupted by the user'
         )
 
+    except asyncio.exceptions.CancelledError:
+        logger.info(
+            'The process was cancelled'
+        )
+
     finally:
         logging.info('Cleaning up')
 

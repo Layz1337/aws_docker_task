@@ -3,7 +3,7 @@ import asyncio
 from typing import List, Dict
 
 from aiobotocore.session import get_session
-from types_aiobotocore_logs.client import CloudWatchLogsClient
+from types_aiobotocore_logs.client import CloudWatchLogsClient, BotocoreClientError
 
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ async def ensure_cw_log_group_and_stream(
     except cw_client.exceptions.ResourceAlreadyExistsException as e:
         # Group already exists, just continue
         pass
-    except cw_client.exceptions as e:
+    except BotocoreClientError as e:
         logger.error(
             'An error occurred while ensuring the CloudWatch log '
             f'group exist: {e}',
@@ -57,7 +57,7 @@ async def ensure_cw_log_group_and_stream(
     except cw_client.exceptions.ResourceAlreadyExistsException as e:
         # Stream already exists
         pass
-    except cw_client.exceptions as e:
+    except BotocoreClientError as e:
         logger.error(
             'An error occurred while ensuring the CloudWatch log '
             f'stream exist: {e}',
