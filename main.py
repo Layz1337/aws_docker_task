@@ -3,6 +3,7 @@
 import logging
 import argparse
 import asyncio
+from typing import List
 
 from aiobotocore.config import AioConfig
 from types_aiobotocore_logs.client import CloudWatchLogsClient
@@ -20,6 +21,7 @@ from helpers import (
     init_aws_session,
     init_docker_client,
     run_docker_container,
+    check_container_status,
     process_log_messages
 )
 
@@ -103,6 +105,23 @@ def setup_logging_level(log_level: str) -> None:
     )
 
 
+async def log_stream(
+        container: DockerContainer,
+        message_buffer: List[bytes]
+) -> None:
+    """
+        Stream container logs
+        It will stop when the container stops
+    """
+    async for line in container.log(follow=True, stdout=True, stderr=True):
+        logger.debug(line)
+        message_buffer.append(line.encode('utf-8'))
+
+        if not await check_container_status(container):
+            logger.info("Container has stopped. Finishing log processing.")
+            break
+
+
 async def stream_and_push_logs(
         container: DockerContainer,
         cw_client: CloudWatchLogsClient,
@@ -118,6 +137,13 @@ async def stream_and_push_logs(
     push_task = None
     log_process_task = None
     try:
+        # Stream the logs from the container
+        log_stream_task = asyncio.create_task(
+            log_stream(
+                container, message_buffer
+            )
+        )
+
         # Process the log messages in batches
         log_process_task = asyncio.create_task(
             process_log_messages(
@@ -140,18 +166,18 @@ async def stream_and_push_logs(
             )
         )
 
-        async for line in container.log(
-                follow=True,
-                stdout=True,
-                stderr=True
-        ):
-            logger.debug(line)
-            message_buffer.append(line.encode('utf-8'))
+        # Wait for the log stream task to finish
+        await log_stream_task
 
     except asyncio.exceptions.CancelledError:
         logger.info('The log push task was cancelled')
 
     finally:
+        # Cancel the log stream task
+        if log_stream_task and not log_stream_task.done():
+            log_stream_task.cancel()
+            await log_stream_task
+
         # Process the remaining log messages
         if log_process_task and not log_process_task.done():
             log_process_task.cancel()
@@ -230,7 +256,7 @@ async def main():
         )
 
     finally:
-        logging.info('Cleaning up')
+        logger.info('Cleaning up')
 
         if container is not None:
             await container.stop(

@@ -39,3 +39,18 @@ async def run_docker_container(
             exc_info=True
         )
         raise
+
+async def check_container_status(
+        container: aiodocker.docker.DockerContainer
+) -> bool:
+    """
+        Check if the container is still running.
+    """
+    try:
+        container_info = await container.show()
+        return container_info['State']['Status'] == 'running'
+    except aiodocker.exceptions.DockerError as e:
+        logger.error(
+            f'Docker error while checking container status: {e}'
+        )
+        return False

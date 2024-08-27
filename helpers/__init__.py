@@ -5,7 +5,8 @@ from .aws_helpers import (
 )
 from .docker_helper import (
     init_docker_client,
-    run_docker_container
+    run_docker_container,
+    check_container_status
 )
 from .data_handler_helpers import (
     fill_batch_buffer,
@@ -20,6 +21,7 @@ __all__ = [
     init_aws_session,
     init_docker_client,
     run_docker_container,
+    check_container_status,
     fill_batch_buffer,
     process_log_messages,
     utf8_boundary_iterator
