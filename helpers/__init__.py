@@ -9,7 +9,8 @@ from .docker_helper import (
 )
 from .data_handler_helpers import (
     fill_batch_buffer,
-    process_log_messages
+    process_log_messages,
+    utf8_boundary_iterator
 )
 
 
@@ -21,4 +22,5 @@ __all__ = [
     run_docker_container,
     fill_batch_buffer,
     process_log_messages,
+    utf8_boundary_iterator
 ]
